@@ -17,7 +17,7 @@ esac
 # download the binary (adjust URL to your GitHub release)
 # curl -L "https://github.com/you/your-repo/releases/latest/download/${SERVICE}-linux-${PKG_ARCH}" -o /tmp/$SERVICE
 # For local dev/demo, just use the checked-out binary:
-cp "./bin/$SERVICE-linux-$PKG_ARCH" /tmp/$SERVICE
+cp "$(dirname "$0")/bin/$SERVICE-linux-$PKG_ARCH" /tmp/$SERVICE
 
 sudo install -m 0755 /tmp/$SERVICE "$BIN"
 sudo mkdir -p /var/lib/$SERVICE /etc/$SERVICE
@@ -26,7 +26,7 @@ sudo chown -R "$USER:$USER" /var/lib/$SERVICE
 # write unit (same as above; inline here for script simplicity)
 sudo tee "$UNIT" >/dev/null <<'EOF'
 [Unit]
-Description=Your Binary Service
+Description=Docker deploy agent
 After=network-online.target
 Wants=network-online.target
 
