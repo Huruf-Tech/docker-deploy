@@ -17,7 +17,7 @@ esac
 # download the binary (adjust URL to your GitHub release)
 # curl -L "https://github.com/you/your-repo/releases/latest/download/${SERVICE}-linux-${PKG_ARCH}" -o /tmp/$SERVICE
 # For local dev/demo, just use the checked-out binary:
-cp "$(dirname "$0")/bin/$SERVICE-linux-$PKG_ARCH" /tmp/$SERVICE
+cp "./bin/$SERVICE-linux-$PKG_ARCH" /tmp/$SERVICE
 
 sudo install -m 0755 /tmp/$SERVICE "$BIN"
 sudo mkdir -p /var/lib/$SERVICE /etc/$SERVICE
