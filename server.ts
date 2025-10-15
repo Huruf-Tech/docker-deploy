@@ -1,7 +1,8 @@
 import { jsonResponse, sh } from "./helpers/utils.ts";
 
 const ACCESS_TOKEN = Deno.env.get("ACCESS_TOKEN") ?? crypto.randomUUID();
-const APPS_ROOT = Deno.env.get("APPS_ROOT") ?? "/opt/apps";
+const SYSTEM_USER = Deno.env.get("SYSTEM_USER") ?? "ubuntu";
+const APPS_ROOT = Deno.env.get("APPS_ROOT") ?? `/home/${SYSTEM_USER}/apps`;
 
 async function ensureAppDir(app: string) {
   const dir = `${APPS_ROOT}/${app}`;
