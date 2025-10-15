@@ -1,9 +1,9 @@
 {
   "name": "docker-deploy",
-  "exports": "./main.ts",
+  "exports": "./server.ts",
   "tasks": {
-    "compile:linux": "deno compile --allow-net --target x86_64-unknown-linux-gnu --output docker-deploy-linux-amd64 main.ts",
-    "compile:windows": "deno compile --allow-net --output docker-deploy-windows-x86_64 main.ts",
+    "compile:linux": "deno compile --allow-net --target x86_64-unknown-linux-gnu --output bin/docker-deploy-linux-amd64 server.ts",
+    "compile:windows": "deno compile --allow-net --output bin/docker-deploy-windows-x86_64 server.ts",
     "compile": "deno task compile:linux && deno task compile:windows"
   },
   "imports": {}

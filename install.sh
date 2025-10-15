@@ -17,7 +17,7 @@ esac
 # download the binary (adjust URL to your GitHub release)
 # curl -L "https://github.com/you/your-repo/releases/latest/download/${SERVICE}-linux-${PKG_ARCH}" -o /tmp/$SERVICE
 # For local dev/demo, just use the checked-out binary:
-cp ./$SERVICE-linux-${PKG_ARCH} /tmp/$SERVICE
+cp "$(dirname "$0")/bin/$SERVICE-linux-$PKG_ARCH" /tmp/$SERVICE
 
 sudo install -m 0755 /tmp/$SERVICE "$BIN"
 sudo mkdir -p /var/lib/$SERVICE /etc/$SERVICE
@@ -41,6 +41,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ProtectHome=true
+EnvironmentFile=-/etc/REPLACE_ME_BIN/.env
 
 [Install]
 WantedBy=multi-user.target
@@ -48,6 +49,28 @@ EOF
 
 sudo sed -i "s/REPLACE_ME_USER/$USER/g" "$UNIT"
 sudo sed -i "s/REPLACE_ME_BIN/$SERVICE/g" "$UNIT"
+
+while true; do
+  read -rsp "Enter password: " PASS; echo
+  read -rsp "Confirm password: " PASS2; echo
+
+  if [ -z "$PASS" ]; then
+    echo "Password cannot be empty."
+  elif [ "$PASS" != "$PASS2" ]; then
+    echo "Passwords do not match. Try again."
+  else
+    break
+  fi
+done
+
+# write env file as root, 600 perms
+sudo mkdir -p /etc/$SERVICE
+
+# shell-escape the value so special chars are safe in KEY=VALUE format
+printf 'ACCESS_TOKEN=%q\n' "$PASS" | sudo tee /etc/$SERVICE/.env >/dev/null
+sudo chmod 600 /etc/$SERVICE/.env
+
+unset PASS PASS2
 
 sudo systemctl daemon-reload
 sudo systemctl enable --now $SERVICE
