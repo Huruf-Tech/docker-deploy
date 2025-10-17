@@ -146,10 +146,12 @@ export const deploy = async (
     if (!deployEnvOpts) {
       const org = init?.dockerOrganization ?? await Input.prompt({
         message: "Provide your docker hub organization/id",
+        validate: (value) => value.length > 2 || "Invalid organization",
       });
 
       const image = init?.dockerImage ?? await Input.prompt({
         message: "Provide your docker image id",
+        validate: (value) => value.length > 2 || "Invalid image name",
       });
 
       const compose = init?.dockerCompose ?? await Input.prompt({
