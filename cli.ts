@@ -4,7 +4,7 @@ import { parseArgs as parse } from "@std/cli/parse-args";
 import { basename, join } from "@std/path";
 import e, { type inferInput, type inferOutput } from "@oridune/validator";
 
-import { Input, Select } from "cliffy:prompt";
+import { Input, Select } from "@cliffy:prompt";
 import { renderTemplate, sh } from "./helpers/utils.ts";
 
 export enum DeployEnv {
@@ -46,7 +46,10 @@ type TDeploymentLogOutput = inferOutput<
   typeof deploymentLogSchema
 >;
 
-export const resolveDeployment = async (name: string, logPath: string) => {
+export const resolveDeployment = async (
+  name: string,
+  logPath: string,
+): Promise<TDeploymentLogOutput> => {
   try {
     return JSON.parse(await Deno.readTextFile(logPath)) as TDeploymentLogOutput;
   } catch {
@@ -63,7 +66,7 @@ export const resolveDeployment = async (name: string, logPath: string) => {
 export const saveDeployment = async (
   logPath: string,
   log: TDeploymentLogOutput,
-) => {
+): Promise<void> => {
   await Deno.writeTextFile(
     logPath,
     JSON.stringify(
