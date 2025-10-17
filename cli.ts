@@ -140,10 +140,8 @@ export const deploy = async (
     throw new Error("A deployment environment is required!");
   }
 
-  let deployEnvOpts = log[options.deployEnv];
-
   if (options.prompt) {
-    if (!deployEnvOpts) {
+    if (!log[options.deployEnv]) {
       const org = init?.dockerOrganization ?? await Input.prompt({
         message: "Provide your docker hub organization/id",
         validate: (value) => value.length > 2 || "Invalid organization",
@@ -168,7 +166,7 @@ export const deploy = async (
         message: "Provide the agent urls",
       })).split(/\s*,\s*/);
 
-      deployEnvOpts = {
+      log[options.deployEnv] = {
         version: {
           major: 0,
           minor: 0,
@@ -184,7 +182,9 @@ export const deploy = async (
     }
   }
 
-  const deployEnv = await deploymentLogEnvSchema.validate(deployEnvOpts);
+  const deployEnv = await deploymentLogEnvSchema.validate(
+    log[options.deployEnv],
+  );
 
   const ImageName = `${deployEnv.dockerImage}-${options.deployEnv}`;
   const ImageVersion = [
