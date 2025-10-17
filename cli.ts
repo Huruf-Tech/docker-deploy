@@ -221,8 +221,11 @@ export const deploy = async (
     const compose = renderTemplate(
       await Deno.readTextFile(deployEnv.dockerCompose),
       {
+        name: resolvedName,
+        environment: options.deployEnv,
         image: ImageTag,
-        
+        imageName: ImageName,
+        ImageVersion: ImageVersion,
       },
     );
 
