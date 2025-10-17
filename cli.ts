@@ -203,6 +203,15 @@ export const deploy = async (
       ["docker", "build", "-t", ImageTag, "."],
     );
   }
+
+  if (!options.skipPublish) {
+    // Push docker image to docker hub
+    await sh(
+      ["docker", "push", ImageTag],
+    );
+  }
+
+  console.log(log);
 };
 
 if (import.meta.main) {
