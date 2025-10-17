@@ -6,5 +6,11 @@
     "compile:windows": "deno compile -A --output bin/docker-deploy-windows-x86_64 server.ts",
     "compile": "deno task compile:linux && deno task compile:windows"
   },
-  "imports": {}
+  "imports": {
+    "@oridune/validator": "jsr:@oridune/validator@^0.4.10",
+    "@std/cli": "jsr:@std/cli@^1.0.23",
+    "@std/fs": "jsr:@std/fs@^1.0.19",
+    "@std/path": "jsr:@std/path@^1.1.2",
+    "cliffy:prompt": "https://deno.land/x/cliffy@v0.25.7/prompt/mod.ts"
+  }
 }
