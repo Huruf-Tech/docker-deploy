@@ -1,15 +1,10 @@
 #!/usr/bin/env -S deno run -A
 
 import { parseArgs as parse } from "@std/cli/parse-args";
-import { basename, dirname, join } from "@std/path";
-import { existsSync } from "@std/fs";
-import e, {
-  type inferInput,
-  type inferOutput,
-  ValidationException,
-} from "@oridune/validator";
+import { basename, join } from "@std/path";
+import e, { type inferInput, type inferOutput } from "@oridune/validator";
 
-import { Confirm, Input, Select } from "cliffy:prompt";
+import { Input, Select } from "cliffy:prompt";
 import { sh } from "./helpers/utils.ts";
 
 export enum DeployEnv {
@@ -93,6 +88,8 @@ export const optsSchema = e.object({
   skipPublish: e.optional(e.boolean()),
   skipApply: e.optional(e.boolean()),
   skipCommit: e.optional(e.boolean()),
+
+  secretKey: e.optional(e.string()),
 }, { allowUnexpectedProps: true });
 
 export const deploy = async (
@@ -164,6 +161,7 @@ export const deploy = async (
 
       const agentUrls = init?.agentUrls ?? (await Input.prompt({
         message: "Provide the agent urls",
+        validate: (value) => value.length > 2 || "Invalid agent url",
       })).split(/\s*,\s*/);
 
       log[options.deployEnv] = {
@@ -211,7 +209,43 @@ export const deploy = async (
     );
   }
 
-  console.log(log);
+  if (!options.skipApply) {
+    if (options.prompt && typeof options.secretKey !== "string") {
+      options.secretKey = await Input.prompt({
+        message: "Enter agent secret",
+      });
+    }
+
+    const deployedUrls: string[] = [];
+
+    for (const url of (log[options.deployEnv]?.agentUrls ?? [])) {
+      const init = {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Content": "application/json",
+          "Authorization": "Bearer " + options.secretKey,
+        },
+      } satisfies RequestInit;
+
+      const res = await fetch(new URL("/deploy", url), init);
+
+      const data = await res.json();
+
+      if (!data.success) {
+        // Rollback previous deployments
+        for (const url of deployedUrls) {
+          await fetch(new URL("/rollback", url), init);
+        }
+
+        return;
+      }
+
+      deployedUrls.push(url);
+    }
+  }
+
+  await saveDeployment(options.logPath, log);
 };
 
 if (import.meta.main) {
