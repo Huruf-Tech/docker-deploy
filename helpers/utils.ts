@@ -12,12 +12,3 @@ export async function sh(cmd: string[], cwd?: string) {
 
   return new TextDecoder().decode(stdout);
 }
-
-export const jsonResponse = (json: unknown, init?: ResponseInit) =>
-  new Response(JSON.stringify(json), {
-    ...init,
-    headers: {
-      ...init?.headers,
-      "content-type": "application/json",
-    },
-  });

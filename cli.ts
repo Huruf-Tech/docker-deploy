@@ -216,9 +216,16 @@ export const deploy = async (
       });
     }
 
+    const deployEnv = log[options.deployEnv]!;
+
+    const compose = await Deno.readTextFile(deployEnv.dockerCompose);
+    const env = (await Promise.all(
+      deployEnv.envPaths.map((path) => Deno.readTextFile(path)),
+    )).join("\n");
+
     const deployedUrls: string[] = [];
 
-    for (const url of (log[options.deployEnv]?.agentUrls ?? [])) {
+    for (const url of deployEnv.agentUrls) {
       const init = {
         method: "POST",
         headers: {
@@ -226,6 +233,11 @@ export const deploy = async (
           "Access-Content": "application/json",
           "Authorization": "Bearer " + options.secretKey,
         },
+        body: JSON.stringify({
+          app: resolvedName,
+          compose,
+          env,
+        }),
       } satisfies RequestInit;
 
       const res = await fetch(new URL("/deploy", url), init);
