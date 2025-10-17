@@ -154,11 +154,13 @@ export const deploy = async (
 
       const compose = init?.dockerCompose ?? await Input.prompt({
         message: "Provide your docker compose path",
-      }) ?? "./docker-compose.yml";
+        default: "./docker-compose.yml",
+      });
 
       const envPaths = init?.envPaths ?? (await Input.prompt({
         message: "Provide the env variable paths",
-      }) ?? "./.env").split(/\s*,\s*/);
+        default: "./.env",
+      })).split(/\s*,\s*/);
 
       const agentUrls = init?.agentUrls ?? (await Input.prompt({
         message: "Provide the agent urls",
