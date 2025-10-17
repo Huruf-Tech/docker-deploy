@@ -1,6 +1,10 @@
 {
-  "name": "docker-deploy",
-  "exports": "./server.ts",
+  "name": "@oridune/docker-deploy",
+  "version": "0.0.1",
+  "exports": {
+    ".": "./cli.ts",
+    "./server": "./server.ts"
+  },
   "tasks": {
     "compile:linux": "deno compile -A --target x86_64-unknown-linux-gnu --output bin/docker-deploy-linux-amd64 server.ts",
     "compile:windows": "deno compile -A --output bin/docker-deploy-windows-x86_64 server.ts",
@@ -9,7 +13,6 @@
   "imports": {
     "@oridune/validator": "jsr:@oridune/validator@^0.4.10",
     "@std/cli": "jsr:@std/cli@^1.0.23",
-    "@std/fs": "jsr:@std/fs@^1.0.19",
     "@std/path": "jsr:@std/path@^1.1.2",
     "cliffy:prompt": "https://deno.land/x/cliffy@v0.25.7/prompt/mod.ts"
   }
