@@ -82,10 +82,8 @@ export const saveDeployment = async (
 export const optsSchema = e.object({
   prompt: e.optional(e.boolean()).default(false),
   name: e.optional(e.string().max(50)),
-  deployEnv: e.optional(e.in(Object.values(DeployEnv)))
-    .default(DeployEnv.Production),
-  deployType: e.optional(e.in(Object.values(DeployType)))
-    .default(DeployType.Patch),
+  deployEnv: e.optional(e.in(Object.values(DeployEnv))),
+  deployType: e.optional(e.in(Object.values(DeployType))),
   logPath: e.optional(e.string()).default(
     join(Deno.cwd(), "deployment-logs.json"),
   ),
@@ -96,17 +94,6 @@ export const optsSchema = e.object({
   skipApply: e.optional(e.boolean()),
   skipCommit: e.optional(e.boolean()),
 }, { allowUnexpectedProps: true });
-
-export const build = async (
-  image: string,
-) => {
-  // Build docker image
-  const output = await sh(
-    ["docker", "build", "-t", image, "."],
-  );
-
-  console.log(output);
-};
 
 export const deploy = async (
   opts?: inferInput<typeof optsSchema>,
@@ -127,6 +114,16 @@ export const deploy = async (
   }
 
   if (options.prompt) {
+    options.deployEnv = await Select.prompt({
+      message: "Select deployment type",
+      options: Object.values(DeployEnv),
+    }) as DeployEnv;
+
+    options.deployType = await Select.prompt({
+      message: "Select deployment type",
+      options: Object.values(DeployType),
+    }) as DeployType;
+
     if (
       options.deployEnv === DeployEnv.Production &&
       (await Input.prompt(
@@ -138,6 +135,10 @@ export const deploy = async (
   const resolvedName = options.name ?? basename(Deno.cwd());
 
   const log = await resolveDeployment(resolvedName, options.logPath);
+
+  if (!options.deployEnv) {
+    throw new Error("A deployment environment is required!");
+  }
 
   let deployEnvOpts = log[options.deployEnv];
 
@@ -193,7 +194,11 @@ export const deploy = async (
   const ImageTag =
     `${deployEnv.dockerOrganization}/${ImageName}:v${ImageVersion}`;
 
-  if (!options.skipBuild) await build(ImageTag);
+  if (!options.skipBuild) {
+    await sh(
+      ["docker", "build", "-t", ImageTag, "."],
+    );
+  }
 };
 
 if (import.meta.main) {
