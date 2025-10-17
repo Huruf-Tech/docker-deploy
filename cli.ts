@@ -1,7 +1,7 @@
 #!/usr/bin/env -S deno run -A
 
 import { parseArgs as parse } from "@std/cli/parse-args";
-import { dirname, join } from "@std/path";
+import { basename, dirname, join } from "@std/path";
 import { existsSync } from "@std/fs";
 import e, {
   type inferInput,
@@ -97,45 +97,34 @@ export const optsSchema = e.object({
   skipCommit: e.optional(e.boolean()),
 }, { allowUnexpectedProps: true });
 
-// export const build = async (
-//   opts: {},
-// ) => {
-//   // Build docker image
-//   const [_, dockerBuildErr] = await spawn(
-//     `docker build -t ${DefaultImageTag} .`,
-//   );
+export const build = async (
+  image: string,
+) => {
+  // Build docker image
+  const output = await sh(
+    ["docker", "build", "-t", image, "."],
+  );
 
-//   if (/^ERROR/.test(dockerBuildErr[0] ?? "")) {
-//     throw new Error(`Docker build has been failed!`);
-//   }
-
-//   // Tag default image
-//   await spawn(
-//     `docker tag ${DefaultImageTag} ${ImageTag}`,
-//   );
-// };
+  console.log(output);
+};
 
 export const deploy = async (
   opts?: inferInput<typeof optsSchema>,
   init?: Partial<inferInput<typeof deploymentLogEnvSchema>>,
 ) => {
-  if (!opts?.deployDirty) {
+  const options = await optsSchema.validate(opts);
+
+  if (!options.deployDirty) {
     const output = await sh(
       ["git", "status", "--porcelain"],
     );
 
-    console.log(output === "");
-
-    return;
-
-    // if (stdout.length) {
-    //   throw new Error(
-    //     `Git staged files detected! Please commit any changes before the deployment!`,
-    //   );
-    // }
+    if (output.length) {
+      throw new Error(
+        `Git staged files detected! Please commit any changes before the deployment!`,
+      );
+    }
   }
-
-  const options = await optsSchema.validate(opts);
 
   if (options.prompt) {
     if (
@@ -146,7 +135,7 @@ export const deploy = async (
     ) throw new Error("Deployment has been aborted!");
   }
 
-  const resolvedName = options.name ?? dirname(Deno.cwd());
+  const resolvedName = options.name ?? basename(Deno.cwd());
 
   const log = await resolveDeployment(resolvedName, options.logPath);
 
@@ -154,12 +143,6 @@ export const deploy = async (
 
   if (options.prompt) {
     if (!deployEnvOpts) {
-      if (
-        !(await Confirm.prompt({
-          message: `Do you want to initialize a new deployment?`,
-        }))
-      ) throw new Error(`No previous deployment logs found!`);
-
       const org = init?.dockerOrganization ?? await Input.prompt({
         message: "Provide your docker hub organization/id",
       });
@@ -198,18 +181,6 @@ export const deploy = async (
 
   const deployEnv = await deploymentLogEnvSchema.validate(deployEnvOpts);
 
-  if (!options.deployDirty) {
-    const output = await sh(
-      ["git", "status", "--porcelain"],
-    );
-
-    // if (stdout.length) {
-    //   throw new Error(
-    //     `Git staged files detected! Please commit any changes before the deployment!`,
-    //   );
-    // }
-  }
-
   const ImageName = `${deployEnv.dockerImage}-${options.deployEnv}`;
   const ImageVersion = [
     [
@@ -221,6 +192,8 @@ export const deploy = async (
   ].filter(Boolean).join("-");
   const ImageTag =
     `${deployEnv.dockerOrganization}/${ImageName}:v${ImageVersion}`;
+
+  if (!options.skipBuild) await build(ImageTag);
 };
 
 if (import.meta.main) {
