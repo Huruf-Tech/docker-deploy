@@ -5,7 +5,7 @@ import { basename, join } from "@std/path";
 import e, { type inferInput, type inferOutput } from "@oridune/validator";
 
 import { Input, Select } from "cliffy:prompt";
-import { sh } from "./helpers/utils.ts";
+import { renderTemplate, sh } from "./helpers/utils.ts";
 
 export enum DeployEnv {
   Staging = "staging",
@@ -218,7 +218,14 @@ export const deploy = async (
 
     const deployEnv = log[options.deployEnv]!;
 
-    const compose = await Deno.readTextFile(deployEnv.dockerCompose);
+    const compose = renderTemplate(
+      await Deno.readTextFile(deployEnv.dockerCompose),
+      {
+        image: ImageTag,
+        
+      },
+    );
+
     const env = (await Promise.all(
       deployEnv.envPaths.map((path) => Deno.readTextFile(path)),
     )).join("\n");

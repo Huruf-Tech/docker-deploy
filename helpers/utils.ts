@@ -1,4 +1,4 @@
-export async function sh(cmd: string[], cwd?: string) {
+export const sh = async (cmd: string[], cwd?: string) => {
   const p = new Deno.Command(cmd[0], {
     args: cmd.slice(1),
     cwd,
@@ -11,4 +11,17 @@ export async function sh(cmd: string[], cwd?: string) {
   if (code !== 0) throw new Error(new TextDecoder().decode(stderr));
 
   return new TextDecoder().decode(stdout);
-}
+};
+
+export const renderTemplate = (
+  template: string,
+  data: Record<string, string>,
+) => {
+  let content = template;
+
+  for (const [key, value] of Object.entries(data)) {
+    content = content.replace(`__${key}__`, value);
+  }
+
+  return content;
+};
