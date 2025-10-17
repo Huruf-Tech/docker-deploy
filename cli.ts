@@ -124,7 +124,7 @@ export const deploy = async (
       ["git", "status", "--porcelain"],
     );
 
-    console.log(output.trim());
+    console.log(output === "");
 
     return;
 
