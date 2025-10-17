@@ -33,8 +33,8 @@ export const deploymentVersionSchema = e.object({
 export const deploymentLogEnvSchema = e.object({
   dockerOrganization: e.string().max(50),
   dockerImage: e.string().max(100),
-  dockerCompose: e.optional(e.string()).default("./docker-compose.yml"),
-  envPaths: e.optional(e.array(e.string()).min(1)).default(["./.env"]),
+  dockerCompose: e.string(),
+  envPaths: e.array(e.string()).min(1),
   version: deploymentVersionSchema,
   versionTag: e.optional(e.string()),
   agentUrls: e.array(e.string()).min(1),
@@ -154,11 +154,11 @@ export const deploy = async (
 
       const compose = init?.dockerCompose ?? await Input.prompt({
         message: "Provide your docker compose path",
-      });
+      }) ?? "./docker-compose.yml";
 
       const envPaths = init?.envPaths ?? (await Input.prompt({
         message: "Provide the env variable paths",
-      })).split(/\s*,\s*/);
+      }) ?? "./.env").split(/\s*,\s*/);
 
       const agentUrls = init?.agentUrls ?? (await Input.prompt({
         message: "Provide the agent urls",
