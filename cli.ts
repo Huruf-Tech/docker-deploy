@@ -4,7 +4,7 @@ import { parseArgs as parse } from "@std/cli/parse-args";
 import { basename, join } from "@std/path";
 import e, { type inferInput, type inferOutput } from "@oridune/validator";
 
-import { Input, Select } from "@cliffy:prompt";
+import { Input, Select } from "@cliffy/prompt";
 import { renderTemplate, sh } from "./helpers/utils.ts";
 
 export enum DeployEnv {

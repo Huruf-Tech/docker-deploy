@@ -11,9 +11,9 @@
     "compile": "deno task compile:linux && deno task compile:windows"
   },
   "imports": {
+    "@cliffy/prompt": "jsr:@cliffy/prompt@1.0.0-rc.8",
     "@oridune/validator": "jsr:@oridune/validator@^0.4.10",
     "@std/cli": "jsr:@std/cli@^1.0.23",
-    "@std/path": "jsr:@std/path@^1.1.2",
-    "@cliffy:prompt": "https://deno.land/x/cliffy@v0.25.7/prompt/mod.ts"
+    "@std/path": "jsr:@std/path@^1.1.2"
   }
 }
