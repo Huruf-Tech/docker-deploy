@@ -200,12 +200,16 @@ export const deploy = async (
     `${deployEnv.dockerOrganization}/${ImageName}:v${ImageVersion}`;
 
   if (!options.skipBuild) {
+    console.info("Building docker image...");
+
     await sh(
       ["docker", "build", "-t", ImageTag, "."],
     );
   }
 
   if (!options.skipPublish) {
+    console.info("Pushing docker image...");
+
     // Push docker image to docker hub
     await sh(
       ["docker", "push", ImageTag],
@@ -213,6 +217,8 @@ export const deploy = async (
   }
 
   if (!options.skipApply) {
+    console.info("Starting deployment...");
+
     if (options.prompt && typeof options.secretKey !== "string") {
       options.secretKey = await Input.prompt({
         message: "Enter agent secret",
@@ -244,39 +250,47 @@ export const deploy = async (
 
     const deployedUrls: string[] = [];
 
-    for (const url of deployEnv.agentUrls) {
-      const init = {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Content": "application/json",
-          "Authorization": "Bearer " + options.secretKey,
-        },
-        body: JSON.stringify({
-          app: resolvedName,
-          compose,
-          env,
-        }),
-      } satisfies RequestInit;
+    const init: RequestInit = {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Content": "application/json",
+        "Authorization": "Bearer " + options.secretKey,
+      },
+      body: JSON.stringify({
+        app: resolvedName,
+        compose,
+        env,
+      }),
+    };
 
-      const res = await fetch(new URL("/deploy", url), init);
+    try {
+      for (const url of deployEnv.agentUrls) {
+        const res = await fetch(new URL("/deploy", url), init);
 
-      const data = await res.json();
+        const data = await res.json();
 
-      if (!data.success) {
-        // Rollback previous deployments
-        for (const url of deployedUrls) {
-          await fetch(new URL("/rollback", url), init);
+        if (!data.success) {
+          throw new Error("Deployment to one of the nodes failed!", {
+            cause: data,
+          });
         }
 
-        return;
+        deployedUrls.push(url);
+      }
+    } catch (error) {
+      // Rollback previous deployments
+      for (const url of deployedUrls) {
+        await fetch(new URL("/rollback", url), init);
       }
 
-      deployedUrls.push(url);
+      throw error;
     }
   }
 
   await saveDeployment(options.logPath, log);
+
+  console.info("Process completed");
 };
 
 if (import.meta.main) {
