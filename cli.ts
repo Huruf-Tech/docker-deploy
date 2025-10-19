@@ -221,19 +221,25 @@ export const deploy = async (
 
     const deployEnv = log[options.deployEnv]!;
 
+    const templateData = {
+      name: resolvedName,
+      environment: options.deployEnv,
+      image: ImageTag,
+      imageName: ImageName,
+      ImageVersion: ImageVersion,
+    };
+
     const compose = renderTemplate(
-      await Deno.readTextFile(deployEnv.dockerCompose),
-      {
-        name: resolvedName,
-        environment: options.deployEnv,
-        image: ImageTag,
-        imageName: ImageName,
-        ImageVersion: ImageVersion,
-      },
+      await Deno.readTextFile(
+        renderTemplate(deployEnv.dockerCompose, templateData),
+      ),
+      templateData,
     );
 
     const env = (await Promise.all(
-      deployEnv.envPaths.map((path) => Deno.readTextFile(path)),
+      deployEnv.envPaths.map((path) =>
+        Deno.readTextFile(renderTemplate(path, templateData))
+      ),
     )).join("\n");
 
     const deployedUrls: string[] = [];
