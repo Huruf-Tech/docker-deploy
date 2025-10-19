@@ -4,7 +4,7 @@ import { parseArgs as parse } from "@std/cli/parse-args";
 import { basename, join } from "@std/path";
 import e, { type inferInput, type inferOutput } from "@oridune/validator";
 
-import { Input, Select } from "@cliffy/prompt";
+import { Input, Select, Secret } from "@cliffy/prompt";
 import { renderTemplate, sh } from "./helpers/utils.ts";
 
 export enum DeployEnv {
@@ -220,7 +220,7 @@ export const deploy = async (
     console.info("Starting deployment...");
 
     if (options.prompt && typeof options.secretKey !== "string") {
-      options.secretKey = await Input.prompt({
+      options.secretKey = await Secret.prompt({
         message: "Enter agent secret",
       });
     }
@@ -266,6 +266,8 @@ export const deploy = async (
 
     try {
       for (const url of deployEnv.agentUrls) {
+        console.info("Deploying:", url);
+
         const res = await fetch(new URL("/deploy", url), init);
 
         const data = await res.json();
@@ -289,6 +291,12 @@ export const deploy = async (
   }
 
   await saveDeployment(options.logPath, log);
+
+  // git commit
+  if (!options.skipCommit) {
+    await sh(["git", "add", "."]);
+    await sh(["git", "commit", "-m", `"Automated deployment: ${ImageTag}"`]);
+  }
 
   console.info("Process completed");
 };
