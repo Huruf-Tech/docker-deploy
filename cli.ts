@@ -20,9 +20,9 @@ export enum DeployType {
 }
 
 export const deploymentVersionSchema = e.object({
-  [DeployType.Major]: e.optional(e.number()),
-  [DeployType.Minor]: e.optional(e.number()),
-  [DeployType.Patch]: e.optional(e.number()),
+  major: e.number(),
+  minor: e.number(),
+  patch: e.number(),
 });
 
 export const deploymentLogEnvSchema = e.object({
@@ -37,9 +37,9 @@ export const deploymentLogEnvSchema = e.object({
 
 export const deploymentLogSchema = e.object({
   name: e.string().max(50),
-  [DeployEnv.Staging]: e.optional(deploymentLogEnvSchema),
-  [DeployEnv.Development]: e.optional(deploymentLogEnvSchema),
-  [DeployEnv.Production]: e.optional(deploymentLogEnvSchema),
+  staging: e.optional(deploymentLogEnvSchema),
+  development: e.optional(deploymentLogEnvSchema),
+  production: e.optional(deploymentLogEnvSchema),
 });
 
 type TDeploymentLogOutput = inferOutput<
@@ -140,52 +140,88 @@ export const deploy = async (
     throw new Error("A deployment environment is required!");
   }
 
-  if (options.prompt) {
-    if (!log[options.deployEnv]) {
-      const org = init?.dockerOrganization ?? await Input.prompt({
+  const deployEnvDetails = log[options.deployEnv];
+
+  const org = init?.dockerOrganization ??
+    deployEnvDetails?.dockerOrganization ??
+    (options.prompt
+      ? await Input.prompt({
         message: "Provide your docker hub organization/id",
         validate: (value) => value.length > 2 || "Invalid organization",
-      });
+      })
+      : undefined);
 
-      const image = init?.dockerImage ?? await Input.prompt({
+  const image = init?.dockerImage ?? deployEnvDetails?.dockerImage ??
+    (options.prompt
+      ? await Input.prompt({
         message: "Provide your docker image id",
         validate: (value) => value.length > 2 || "Invalid image name",
-      });
+      })
+      : undefined);
 
-      const compose = init?.dockerCompose ?? await Input.prompt({
+  const compose = init?.dockerCompose ?? deployEnvDetails?.dockerCompose ??
+    (options.prompt
+      ? await Input.prompt({
         message: "Provide your docker compose path",
         default: "./docker-compose.yml",
-      });
+      })
+      : undefined);
 
-      const envPaths = init?.envPaths ?? (await Input.prompt({
+  const envPaths = init?.envPaths ?? deployEnvDetails?.envPaths ??
+    (options.prompt
+      ? (await Input.prompt({
         message: "Provide the env variable paths",
         default: "./.env",
-      })).split(/\s*,\s*/);
+      })).split(/\s*,\s*/)
+      : undefined);
 
-      const agentUrls = init?.agentUrls ?? (await Input.prompt({
+  const agentUrls = init?.agentUrls ?? deployEnvDetails?.agentUrls ??
+    (options.prompt
+      ? (await Input.prompt({
         message: "Provide the agent urls",
         validate: (value) => value.length > 2 || "Invalid agent url",
-      })).split(/\s*,\s*/);
+      })).split(/\s*,\s*/)
+      : undefined);
 
-      log[options.deployEnv] = {
-        version: {
-          major: 0,
-          minor: 0,
-          patch: 0,
-        },
-        versionTag: undefined,
-        dockerOrganization: org,
-        dockerImage: image,
-        dockerCompose: compose,
-        envPaths,
-        agentUrls,
-      };
-    }
+  const resolvedDeployEnvDetails = {
+    ...deployEnvDetails,
+    version: deployEnvDetails?.version ?? {
+      major: 0,
+      minor: 0,
+      patch: 0,
+    },
+    versionTag: deployEnvDetails?.versionTag,
+    dockerOrganization: org,
+    dockerImage: image,
+    dockerCompose: compose,
+    envPaths,
+    agentUrls,
+  };
+
+  // Increment version
+  const version = resolvedDeployEnvDetails!.version;
+
+  switch (options.deployType) {
+    case DeployType.Major:
+      version.major++;
+      version.minor = 0;
+      version.patch = 0;
+      break;
+
+    case DeployType.Minor:
+      version.minor++;
+      version.patch = 0;
+      break;
+
+    case DeployType.Patch:
+      version.patch++;
+      break;
   }
 
-  const deployEnv = await deploymentLogEnvSchema.validate(
-    log[options.deployEnv],
-  );
+  const deployEnv = log[options.deployEnv] = await deploymentLogEnvSchema
+    .validate(
+      resolvedDeployEnvDetails,
+    );
 
   const ImageName = `${deployEnv.dockerImage}-${options.deployEnv}`;
   const ImageVersion = [
@@ -208,7 +244,7 @@ export const deploy = async (
   }
 
   if (!options.skipPublish) {
-    console.info("Pushing docker image...");
+    console.info("Pushing docker image:", ImageTag);
 
     // Push docker image to docker hub
     await sh(
@@ -224,8 +260,6 @@ export const deploy = async (
         message: "Enter agent secret",
       });
     }
-
-    const deployEnv = log[options.deployEnv]!;
 
     const templateData = {
       name: resolvedName,
