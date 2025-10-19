@@ -4,7 +4,7 @@ import { parseArgs as parse } from "@std/cli/parse-args";
 import { basename, join } from "@std/path";
 import e, { type inferInput, type inferOutput } from "@oridune/validator";
 
-import { Input, Select, Secret } from "@cliffy/prompt";
+import { Input, Secret, Select } from "@cliffy/prompt";
 import { renderTemplate, sh } from "./helpers/utils.ts";
 
 export enum DeployEnv {
@@ -302,6 +302,12 @@ export const deploy = async (
 };
 
 if (import.meta.main) {
+  const { default: denoConfig } = await import("./deno.json", {
+    with: { type: "json" },
+  });
+
+  console.info("Docker Deploy Version:", denoConfig.version);
+
   await deploy({ ...parse(Deno.args), prompt: true });
 
   Deno.exit();
