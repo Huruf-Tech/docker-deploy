@@ -183,6 +183,13 @@ export const deploy = async (
       })).split(/\s*,\s*/)
       : undefined);
 
+  const secretKey = options.secretKey ??
+    (!options.skipApply && options.prompt
+      ? await Secret.prompt({
+        message: "Enter agent secret",
+      })
+      : undefined);
+
   const resolvedDeployEnvDetails = {
     ...deployEnvDetails,
     version: deployEnvDetails?.version ?? {
@@ -255,12 +262,6 @@ export const deploy = async (
   if (!options.skipApply) {
     console.info("Starting deployment...");
 
-    if (options.prompt && typeof options.secretKey !== "string") {
-      options.secretKey = await Secret.prompt({
-        message: "Enter agent secret",
-      });
-    }
-
     const templateData = {
       name: resolvedName,
       environment: options.deployEnv,
@@ -289,7 +290,7 @@ export const deploy = async (
       headers: {
         "Content-Type": "application/json",
         "Access-Content": "application/json",
-        "Authorization": "Bearer " + options.secretKey,
+        "Authorization": "Bearer " + secretKey,
       },
       body: JSON.stringify({
         app: resolvedName,
