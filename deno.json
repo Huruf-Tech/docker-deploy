@@ -1,6 +1,6 @@
 {
   "name": "@oridune/docker-deploy",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "exports": {
     ".": "./cli.ts",
     "./server": "./server.ts"
