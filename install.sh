@@ -124,6 +124,9 @@ sudo sed -i "s/REPLACE_ME_USER/$USER/g" "$UNIT"
 sudo sed -i "s/REPLACE_ME_BIN/$SERVICE/g" "$UNIT"
 
 # ---- secret prompt (kept ACCESS_TOKEN + 600 perms) ----
+echo "Service has been installed."
+echo "Now you are required to setup an access password that you will use for communication."
+
 while true; do
   read -rsp "Enter password: " PASS; echo
   read -rsp "Confirm password: " PASS2; echo
@@ -150,6 +153,6 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now "${SERVICE}.service"
 
 echo "Installed and started $SERVICE"
-echo "Docker: $(docker --version 2>/dev/null || echo 'installed')"
-echo "Status: sudo systemctl status $SERVICE"
-echo "Logs:   journalctl -u $SERVICE -f"
+echo "Docker  : $(docker --version 2>/dev/null || echo 'installed')"
+echo "Status  : sudo systemctl status $SERVICE"
+echo "Logs    : journalctl -u $SERVICE -f"

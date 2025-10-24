@@ -5,58 +5,80 @@ const ACCESS_TOKEN = Deno.env.get("ACCESS_TOKEN") ?? crypto.randomUUID();
 const SYSTEM_USER = Deno.env.get("SYSTEM_USER") ?? "ubuntu";
 const APPS_ROOT = Deno.env.get("APPS_ROOT") ?? `/home/${SYSTEM_USER}/apps`;
 
-const ensureAppDir = async (app: string) => {
-  const dir = `${APPS_ROOT}/${app}`;
+const ensureAppDir = async (app: string, tag: string) => {
+  const dir = `${APPS_ROOT}/${app}/${tag}`;
 
   await Deno.mkdir(dir, { recursive: true });
 
   return dir;
 };
 
-const rollback = async (app: string) => {
-  const appDir = await ensureAppDir(app);
+const rollback = async (app: string, tag: string) => {
+  const appDir = await ensureAppDir(app, tag);
+
   const backupComposePath = `${appDir}/docker-compose.backup.yml`;
   const backupEnvPath = `${appDir}/backup.env`;
 
   await deploy({
     app,
+    tag,
     compose: await Deno.readTextFile(backupComposePath),
     env: await Deno.readTextFile(backupEnvPath).catch(() => undefined),
+  }, {
+    disableBackup: true,
+    disableRollback: true,
   });
-}
+};
 
-const deploy = async (opts: { app: string; compose: string; env?: string }) => {
-  const appDir = await ensureAppDir(opts.app);
-  const backupComposePath = `${appDir}/docker-compose.backup.yml`;
+const deploy = async (
+  details: {
+    app: string;
+    tag: string;
+    compose: string;
+    env?: string;
+  },
+  opts?: {
+    disableBackup: boolean;
+    disableRollback: boolean;
+  },
+) => {
+  const appDir = await ensureAppDir(details.app, details.tag);
+
   const composePath = `${appDir}/docker-compose.yml`;
-  const backupEnvPath = `${appDir}/backup.env`;
   const envPath = `${appDir}/.env`;
 
-  try {
-    await Deno.writeTextFile(
-      backupComposePath,
-      await Deno.readTextFile(composePath),
-    );
+  if (!opts?.disableBackup) {
+    try {
+      const backupComposePath = `${appDir}/docker-compose.backup.yml`;
+      const backupEnvPath = `${appDir}/backup.env`;
 
-    await Deno.writeTextFile(
-      backupEnvPath,
-      await Deno.readTextFile(envPath),
-    );
-  } catch {
-    // Do nothing...
+      await Deno.writeTextFile(
+        backupComposePath,
+        await Deno.readTextFile(composePath),
+      );
+
+      await Deno.writeTextFile(
+        backupEnvPath,
+        await Deno.readTextFile(envPath),
+      );
+    } catch {
+      // Do nothing...
+    }
   }
 
-  await Deno.writeTextFile(composePath, opts.compose);
+  await Deno.writeTextFile(composePath, details.compose);
 
-  if (opts.env) await Deno.writeTextFile(envPath, opts.env);
+  if (details.env) await Deno.writeTextFile(envPath, details.env);
 
   // Pull and up with minimal downtime
   await sh(["docker", "compose", "pull"], appDir);
 
   try {
     await sh(["docker", "compose", "up", "-d", "--remove-orphans"], appDir);
-  } catch {
-    await rollback(opts.app);
+  } catch (err) {
+    if (!opts?.disableRollback) {
+      await rollback(details.app, details.tag);
+    } else throw err;
   }
 };
 
@@ -84,9 +106,10 @@ Deno.serve({ port: 3740 }, async (req) => {
     if (req.method === "POST" && url.pathname === "/deploy") {
       const data = await e.object({
         app: e.string().min(2).max(100),
+        tag: e.string().min(2).max(100),
         compose: e.string(),
         env: e.optional(e.string()),
-      }).validate(await req.json());
+      }, { allowUnexpectedProps: true }).validate(await req.json());
 
       await deploy(data);
 
@@ -96,9 +119,10 @@ Deno.serve({ port: 3740 }, async (req) => {
     if (req.method === "POST" && url.pathname === "/rollback") {
       const data = await e.object({
         app: e.string().min(2).max(100),
-      }).validate(await req.json());
+        tag: e.string().min(2).max(100),
+      }, { allowUnexpectedProps: true }).validate(await req.json());
 
-      await rollback(data.app);
+      await rollback(data.app, data.tag);
 
       return jsonResponse({ success: true });
     }

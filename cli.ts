@@ -289,11 +289,12 @@ export const deploy = async (
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Access-Content": "application/json",
+        "Accept": "application/json",
         "Authorization": "Bearer " + secretKey,
       },
       body: JSON.stringify({
         app: resolvedName,
+        tag: options.deployEnv,
         compose,
         env,
       }),
