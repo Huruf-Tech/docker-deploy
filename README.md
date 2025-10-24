@@ -1,6 +1,6 @@
 # Docker Deploy
 
-> A powerful deployment tool for automating Docker-based application deployments to cloud instances like AWS EC2 and Google Cloud App Engine.
+> A powerful and open source deployment tool for automating Docker-based application deployments to cloud instances like AWS EC2 and Google Cloud App Engine. An alternative to dokku or PAAS services like Heroku or Netlify etc, for your choice of cloud platform or machine.
 
 ## Overview
 
