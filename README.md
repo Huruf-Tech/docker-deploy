@@ -39,7 +39,7 @@ During installation, you'll be prompted to set a secure password for deployment 
 Install the Docker Deploy CLI using Deno:
 
 ```bash
-deno install -Af jsr:oridune/docker-deploy --name docker-deploy
+deno install -Af --name docker-deploy --global jsr:@oridune/docker-deploy
 ```
 
 **Prerequisites:**
