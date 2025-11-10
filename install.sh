@@ -127,6 +127,8 @@ sudo sed -i "s/REPLACE_ME_BIN/$SERVICE/g" "$UNIT"
 echo "Service has been installed."
 echo "Now you are required to setup an access password that you will use for communication."
 
+set +H  # disable history expansion
+
 while true; do
   read -rsp "Enter password: " PASS; echo
   read -rsp "Confirm password: " PASS2; echo
@@ -138,6 +140,8 @@ while true; do
     break
   fi
 done
+
+set -H # enable history expansion
 
 # shell-escape the value so special chars are safe in KEY=VALUE format
 printf 'ACCESS_TOKEN=%q\n' "$PASS" | sudo tee "$ENV_FILE" >/dev/null
