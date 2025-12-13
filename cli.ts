@@ -77,6 +77,20 @@ export const saveDeployment = async (
   );
 };
 
+export const readEnvFiles = async (paths: string[]) =>
+  (await Promise.all(
+    paths.map((path) => Deno.readTextFile(path).catch(() => "")),
+  )).join("\n").trim();
+
+export const readLocalEnv = async (
+  key: string,
+): Promise<string | undefined> => {
+  return Deno.env.get(key) ??
+    (await readEnvFiles(["./.env", "./env/.env"])).split("\n").find(
+      (line) => line.startsWith(key + "="),
+    )?.split("=")[1].trim();
+};
+
 export const optsSchema = e.object({
   prompt: e.optional(e.boolean()).default(false),
   name: e.optional(e.string().max(50)),
@@ -190,6 +204,7 @@ export const deploy = async (
       : undefined);
 
   const secretKey = options.secretKey ??
+    await readLocalEnv("DOCKER_DEPLOY_SECRET_KEY") ??
     (!options.skipApply && options.prompt
       ? await Secret.prompt({
         message: "Enter agent secret",
@@ -287,11 +302,9 @@ export const deploy = async (
         templateData,
       );
 
-      const env = (await Promise.all(
-        deployEnv.envPaths.map((path) =>
-          Deno.readTextFile(renderTemplate(path, templateData)).catch(() => "")
-        ),
-      )).join("\n").trim() || undefined;
+      const env = await readEnvFiles(deployEnv.envPaths.map((path) =>
+        renderTemplate(path, templateData)
+      )) || undefined;
 
       const deployedUrls: string[] = [];
 
