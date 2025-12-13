@@ -32,7 +32,7 @@ export const deploymentLogEnvSchema = e.object({
   envPaths: e.array(e.string()).min(1),
   version: deploymentVersionSchema,
   versionTag: e.optional(e.string()),
-  agentUrls: e.array(e.string()).min(1),
+  agentUrls: e.array(e.url()).min(1),
 });
 
 export const deploymentLogSchema = e.object({
@@ -178,8 +178,14 @@ export const deploy = async (
   const agentUrls = init?.agentUrls ?? deployEnvDetails?.agentUrls ??
     (options.prompt
       ? (await Input.prompt({
-        message: "Provide the agent urls",
-        validate: (value) => value.length > 2 || "Invalid agent url",
+        message: "Provide the agent url(s). E.g: http://you-host.com:3740,...",
+        validate: async (value) => {
+          if (
+            !(await e.array(e.url()).min(1).test(value.split(/\s*,\s*/)))
+          ) return "Invalid agent url(s)";
+
+          return true;
+        },
       })).split(/\s*,\s*/)
       : undefined);
 
@@ -207,6 +213,7 @@ export const deploy = async (
 
   // Increment version
   const version = resolvedDeployEnvDetails!.version;
+  const backupVersion = { ...version };
 
   switch (options.deployType) {
     case DeployType.Major:
@@ -242,91 +249,100 @@ export const deploy = async (
   const ImageTag =
     `${deployEnv.dockerOrganization}/${ImageName}:v${ImageVersion}`;
 
-  if (!options.skipBuild) {
-    console.info("Building docker image...");
+  await saveDeployment(options.logPath, log);
 
-    await sh(
-      ["docker", "build", "-t", ImageTag, "."],
-    );
-  }
+  try {
+    if (!options.skipBuild) {
+      console.info("Building docker image...");
 
-  if (!options.skipPublish) {
-    console.info("Pushing docker image:", ImageTag);
+      await sh(
+        ["docker", "build", "-t", ImageTag, "."],
+      );
+    }
 
-    // Push docker image to docker hub
-    await sh(
-      ["docker", "push", ImageTag],
-    );
-  }
+    if (!options.skipPublish) {
+      console.info("Pushing docker image:", ImageTag);
 
-  if (!options.skipApply) {
-    console.info("Starting deployment...");
+      // Push docker image to docker hub
+      await sh(
+        ["docker", "push", ImageTag],
+      );
+    }
 
-    const templateData = {
-      name: resolvedName,
-      environment: options.deployEnv,
-      image: ImageTag,
-      imageName: ImageName,
-      ImageVersion: ImageVersion,
-    };
+    if (!options.skipApply) {
+      console.info("Starting deployment...");
 
-    const compose = renderTemplate(
-      await Deno.readTextFile(
-        renderTemplate(deployEnv.dockerCompose, templateData),
-      ),
-      templateData,
-    );
+      const templateData = {
+        name: resolvedName,
+        environment: options.deployEnv,
+        image: ImageTag,
+        imageName: ImageName,
+        ImageVersion: ImageVersion,
+      };
 
-    const env = (await Promise.all(
-      deployEnv.envPaths.map((path) =>
-        Deno.readTextFile(renderTemplate(path, templateData))
-      ),
-    )).join("\n");
+      const compose = renderTemplate(
+        await Deno.readTextFile(
+          renderTemplate(deployEnv.dockerCompose, templateData),
+        ),
+        templateData,
+      );
 
-    const deployedUrls: string[] = [];
+      const env = (await Promise.all(
+        deployEnv.envPaths.map((path) =>
+          Deno.readTextFile(renderTemplate(path, templateData)).catch(() => "")
+        ),
+      )).join("\n").trim() || undefined;
 
-    const init: RequestInit = {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "Authorization": "Bearer " + secretKey,
-      },
-      body: JSON.stringify({
-        app: resolvedName,
-        tag: options.deployEnv,
-        compose,
-        env,
-      }),
-    };
+      const deployedUrls: string[] = [];
 
-    try {
-      for (const url of deployEnv.agentUrls) {
-        console.info("Deploying:", url);
+      const init: RequestInit = {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "Bearer " + secretKey,
+        },
+        body: JSON.stringify({
+          app: resolvedName,
+          tag: options.deployEnv,
+          compose,
+          env,
+        }),
+      };
 
-        const res = await fetch(new URL("/deploy", url), init);
+      try {
+        for (const url of deployEnv.agentUrls) {
+          console.info("Deploying:", ImageTag, "on:", url);
 
-        const data = await res.json();
+          const res = await fetch(new URL("/deploy", url), init);
 
-        if (!data.success) {
-          throw new Error("Deployment to one of the nodes failed!", {
-            cause: data,
-          });
+          const data = await res.json();
+
+          if (!data.success) {
+            throw new Error("Deployment to one of the nodes failed!", {
+              cause: data,
+            });
+          }
+
+          deployedUrls.push(url);
+        }
+      } catch (error) {
+        // Rollback previous deployments
+        for (const url of deployedUrls) {
+          await fetch(new URL("/rollback", url), init);
         }
 
-        deployedUrls.push(url);
+        throw error;
       }
-    } catch (error) {
-      // Rollback previous deployments
-      for (const url of deployedUrls) {
-        await fetch(new URL("/rollback", url), init);
-      }
-
-      throw error;
     }
-  }
+  } catch (error) {
+    // Rollback version
+    log[options.deployEnv]!.version = backupVersion;
 
-  await saveDeployment(options.logPath, log);
+    await saveDeployment(options.logPath, log);
+
+    throw error;
+  }
 
   // git commit
   if (!options.skipCommit) {

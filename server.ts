@@ -25,8 +25,8 @@ const rollback = async (app: string, tag: string) => {
     compose: await Deno.readTextFile(backupComposePath),
     env: await Deno.readTextFile(backupEnvPath).catch(() => undefined),
   }, {
-    disableBackup: true,
-    disableRollback: true,
+    noBackup: true,
+    noRollback: true,
   });
 };
 
@@ -38,8 +38,8 @@ const deploy = async (
     env?: string;
   },
   opts?: {
-    disableBackup: boolean;
-    disableRollback: boolean;
+    noBackup: boolean;
+    noRollback: boolean;
   },
 ) => {
   const appDir = await ensureAppDir(details.app, details.tag);
@@ -47,7 +47,7 @@ const deploy = async (
   const composePath = `${appDir}/docker-compose.yml`;
   const envPath = `${appDir}/.env`;
 
-  if (!opts?.disableBackup) {
+  if (!opts?.noBackup) {
     try {
       const backupComposePath = `${appDir}/docker-compose.backup.yml`;
       const backupEnvPath = `${appDir}/backup.env`;
@@ -74,9 +74,9 @@ const deploy = async (
   await sh(["docker", "compose", "pull"], appDir);
 
   try {
-    await sh(["docker", "compose", "up", "-d", "--remove-orphans"], appDir);
+    await sh(["docker", "compose", "up", "-d", "--remove-orphans", "--force-recreate"], appDir);
   } catch (err) {
-    if (!opts?.disableRollback) {
+    if (!opts?.noRollback) {
       await rollback(details.app, details.tag);
     } else throw err;
   }

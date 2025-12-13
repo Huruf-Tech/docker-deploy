@@ -24,6 +24,11 @@ services:
       - "traefik.http.routers.api-http.entrypoints=web"
       - "traefik.http.routers.api-http.middlewares=redirect-to-https"
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   traefik:
     image: traefik:v2.10
@@ -47,6 +52,11 @@ services:
     restart: unless-stopped
     networks:
       - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
 
 networks:
   app-network:
