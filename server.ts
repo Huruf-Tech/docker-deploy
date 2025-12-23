@@ -70,11 +70,21 @@ const deploy = async (
 
   if (details.env) await Deno.writeTextFile(envPath, details.env);
 
+  // Space cleanup
+  await sh(["docker", "system", "prune", "-a", "-f"], appDir);
+
   // Pull and up with minimal downtime
   await sh(["docker", "compose", "pull"], appDir);
 
   try {
-    await sh(["docker", "compose", "up", "-d", "--remove-orphans", "--force-recreate"], appDir);
+    await sh([
+      "docker",
+      "compose",
+      "up",
+      "-d",
+      "--remove-orphans",
+      "--force-recreate",
+    ], appDir);
   } catch (err) {
     if (!opts?.noRollback) {
       await rollback(details.app, details.tag);

@@ -17,12 +17,14 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.api.rule=Host(`yourdomain.com`)"
       - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls=true"
       - "traefik.http.routers.api.tls.certresolver=myresolver"
       - "traefik.http.services.api.loadbalancer.server.port=3742"
       # HTTP to HTTPS redirect
       - "traefik.http.routers.api-http.rule=Host(`yourdomain.com`)"
       - "traefik.http.routers.api-http.entrypoints=web"
       - "traefik.http.routers.api-http.middlewares=redirect-to-https"
+      - "traefik.http.routers.api-http.service=noop@internal"
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
     logging:
       driver: "json-file"
@@ -31,7 +33,7 @@ services:
         max-file: "5"
 
   traefik:
-    image: traefik:v2.10
+    image: traefik:v3.6.5
     container_name: traefik-__environment__
     command:
       - "--api.insecure=true"
