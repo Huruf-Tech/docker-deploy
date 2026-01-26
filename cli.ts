@@ -206,7 +206,7 @@ export const deploy = async (
       : undefined);
 
   const preDeployCommand = init?.preShell ?? deployEnvDetails?.preShell ??
-    (options.prompt
+    (options.prompt && !deployEnvDetails
       ? await Input.prompt({
         message: "Provide your pre-deploy command",
       })
@@ -214,7 +214,7 @@ export const deploy = async (
 
   const postDeployCommand = init?.postShell ??
     deployEnvDetails?.postShell ??
-    (options.prompt
+    (options.prompt && !deployEnvDetails
       ? await Input.prompt({
         message: "Provide your post-deploy command",
       })
