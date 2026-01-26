@@ -208,7 +208,7 @@ export const deploy = async (
   const preDeployCommand = init?.preShell ?? deployEnvDetails?.preShell ??
     (options.prompt && !deployEnvDetails
       ? await Input.prompt({
-        message: "Provide your pre-deploy command",
+        message: "Provide your pre-deploy shell command/script",
       })
       : undefined);
 
@@ -216,7 +216,7 @@ export const deploy = async (
     deployEnvDetails?.postShell ??
     (options.prompt && !deployEnvDetails
       ? await Input.prompt({
-        message: "Provide your post-deploy command",
+        message: "Provide your post-deploy shell command/script",
       })
       : undefined);
 
