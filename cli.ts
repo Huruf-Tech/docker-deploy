@@ -33,8 +33,8 @@ export const deploymentLogEnvSchema = e.object({
   version: deploymentVersionSchema,
   versionTag: e.optional(e.string()),
   agentUrls: e.array(e.url()).min(1),
-  preCommand: e.optional(e.string()),
-  postCommand: e.optional(e.string()),
+  preShell: e.optional(e.string()),
+  postShell: e.optional(e.string()),
 });
 
 export const deploymentLogSchema = e.object({
@@ -205,15 +205,15 @@ export const deploy = async (
       })).split(/\s*,\s*/)
       : undefined);
 
-  const preDeployCommand = init?.preCommand ?? deployEnvDetails?.preCommand ??
+  const preDeployCommand = init?.preShell ?? deployEnvDetails?.preShell ??
     (options.prompt
       ? await Input.prompt({
         message: "Provide your pre-deploy command",
       })
       : undefined);
 
-  const postDeployCommand = init?.postCommand ??
-    deployEnvDetails?.postCommand ??
+  const postDeployCommand = init?.postShell ??
+    deployEnvDetails?.postShell ??
     (options.prompt
       ? await Input.prompt({
         message: "Provide your post-deploy command",
@@ -325,12 +325,12 @@ export const deploy = async (
 
       const deployedUrls: string[] = [];
 
-      const preCommand = renderTemplate(
+      const preShell = renderTemplate(
         preDeployCommand ?? "",
         templateData,
       ).trim();
 
-      const postCommand = renderTemplate(
+      const postShell = renderTemplate(
         postDeployCommand ?? "",
         templateData,
       ).trim();
@@ -351,8 +351,8 @@ export const deploy = async (
           tag: options.deployEnv,
           compose,
           env,
-          preCommand,
-          postCommand,
+          preShell,
+          postShell,
         }),
       };
 

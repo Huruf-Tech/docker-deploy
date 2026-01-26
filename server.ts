@@ -17,8 +17,8 @@ const rollback = async (
   details: {
     app: string;
     tag: string;
-    preCommand?: string;
-    postCommand?: string;
+    preShell?: string;
+    postShell?: string;
   },
 ) => {
   const appDir = await ensureAppDir(details.app, details.tag);
@@ -28,14 +28,14 @@ const rollback = async (
   const preBackupCommandPath = `${appDir}/.pre_deploy.backup.sh`;
   const postBackupCommandPath = `${appDir}/.post_deploy.backup.sh`;
 
-  if (details.preCommand) {
+  if (details.preShell) {
     await sh(
-      details.preCommand.split(" "),
+      ["sh", "-c", details.preShell],
       appDir,
     );
   }
 
-  const [compose, env, preCommand, postCommand] = await Promise.all([
+  const [compose, env, preShell, postShell] = await Promise.all([
     Deno.readTextFile(backupComposePath),
     Deno.readTextFile(backupEnvPath).catch(() => undefined),
     Deno.readTextFile(preBackupCommandPath).catch(() => undefined),
@@ -47,15 +47,15 @@ const rollback = async (
     tag: details.tag,
     compose,
     env,
-    preCommand,
-    postCommand,
+    preShell,
+    postShell,
   }, {
     noBackup: true,
   });
 
-  if (details.postCommand) {
+  if (details.postShell) {
     await sh(
-      details.postCommand.split(" "),
+      ["sh", "-c", details.postShell],
       appDir,
     );
   }
@@ -67,8 +67,8 @@ const deploy = async (
     tag: string;
     compose: string;
     env?: string;
-    preCommand?: string;
-    postCommand?: string;
+    preShell?: string;
+    postShell?: string;
   },
   opts?: {
     noBackup: boolean;
@@ -78,8 +78,8 @@ const deploy = async (
 
   const composePath = `${appDir}/docker-compose.yml`;
   const envPath = `${appDir}/.env`;
-  const preCommandPath = `${appDir}/.pre_deploy.sh`;
-  const postCommandPath = `${appDir}/.post_deploy.sh`;
+  const preShellPath = `${appDir}/.pre_deploy.sh`;
+  const postShellPath = `${appDir}/.post_deploy.sh`;
 
   if (!opts?.noBackup) {
     const backupComposePath = `${appDir}/docker-compose.backup.yml`;
@@ -90,8 +90,8 @@ const deploy = async (
     const backupFiles = await Promise.allSettled([
       Deno.readTextFile(composePath),
       Deno.readTextFile(envPath),
-      Deno.readTextFile(preCommandPath),
-      Deno.readTextFile(postCommandPath),
+      Deno.readTextFile(preShellPath),
+      Deno.readTextFile(postShellPath),
     ]);
 
     await Promise.allSettled([
@@ -120,13 +120,13 @@ const deploy = async (
 
   if (details.env) await Deno.writeTextFile(envPath, details.env);
 
-  if (details.preCommand) {
+  if (details.preShell) {
     await sh(
-      details.preCommand.split(" "),
+      ["sh", "-c", details.preShell],
       appDir,
     );
 
-    await Deno.writeTextFile(preCommandPath, details.preCommand);
+    await Deno.writeTextFile(preShellPath, details.preShell);
   }
 
   // Space cleanup
@@ -144,13 +144,13 @@ const deploy = async (
     "--force-recreate",
   ], appDir);
 
-  if (details.postCommand) {
+  if (details.postShell) {
     await sh(
-      details.postCommand.split(" "),
+      ["sh", "-c", details.postShell],
       appDir,
     );
 
-    await Deno.writeTextFile(postCommandPath, details.postCommand);
+    await Deno.writeTextFile(postShellPath, details.postShell);
   }
 };
 
@@ -181,8 +181,8 @@ Deno.serve({ port: 3740 }, async (req) => {
         tag: e.string().min(2).max(100),
         compose: e.string(),
         env: e.optional(e.string()),
-        preCommand: e.optional(e.string()),
-        postCommand: e.optional(e.string()),
+        preShell: e.optional(e.string()),
+        postShell: e.optional(e.string()),
       }, { allowUnexpectedProps: true }).validate(await req.json());
 
       await deploy(data);
@@ -194,8 +194,8 @@ Deno.serve({ port: 3740 }, async (req) => {
       const data = await e.object({
         app: e.string().min(2).max(100),
         tag: e.string().min(2).max(100),
-        preCommand: e.optional(e.string()),
-        postCommand: e.optional(e.string()),
+        preShell: e.optional(e.string()),
+        postShell: e.optional(e.string()),
       }, { allowUnexpectedProps: true }).validate(await req.json());
 
       await rollback(data);
