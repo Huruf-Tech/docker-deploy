@@ -33,6 +33,8 @@ export const deploymentLogEnvSchema = e.object({
   version: deploymentVersionSchema,
   versionTag: e.optional(e.string()),
   agentUrls: e.array(e.url()).min(1),
+  preCommand: e.optional(e.string()),
+  postCommand: e.optional(e.string()),
 });
 
 export const deploymentLogSchema = e.object({
@@ -203,6 +205,21 @@ export const deploy = async (
       })).split(/\s*,\s*/)
       : undefined);
 
+  const preDeployCommand = init?.preCommand ?? deployEnvDetails?.preCommand ??
+    (options.prompt
+      ? await Input.prompt({
+        message: "Provide your pre-deploy command",
+      })
+      : undefined);
+
+  const postDeployCommand = init?.postCommand ??
+    deployEnvDetails?.postCommand ??
+    (options.prompt
+      ? await Input.prompt({
+        message: "Provide your post-deploy command",
+      })
+      : undefined);
+
   const secretKey = options.secretKey ??
     await readLocalEnv("DOCKER_DEPLOY_SECRET_KEY") ??
     (!options.skipApply && options.prompt
@@ -308,18 +325,42 @@ export const deploy = async (
 
       const deployedUrls: string[] = [];
 
-      const init: RequestInit = {
+      const preCommand = renderTemplate(
+        preDeployCommand ?? "",
+        templateData,
+      ).trim();
+
+      const postCommand = renderTemplate(
+        postDeployCommand ?? "",
+        templateData,
+      ).trim();
+
+      const generalPayload: RequestInit = {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json",
           "Authorization": "Bearer " + secretKey,
         },
+      };
+
+      const deployPayload: RequestInit = {
+        ...generalPayload,
         body: JSON.stringify({
           app: resolvedName,
           tag: options.deployEnv,
           compose,
           env,
+          preCommand,
+          postCommand,
+        }),
+      };
+
+      const rollbackPayload: RequestInit = {
+        ...generalPayload,
+        body: JSON.stringify({
+          app: resolvedName,
+          tag: options.deployEnv,
         }),
       };
 
@@ -327,7 +368,7 @@ export const deploy = async (
         for (const url of deployEnv.agentUrls) {
           console.info("Deploying:", ImageTag, "on:", url);
 
-          const res = await fetch(new URL("/deploy", url), init);
+          const res = await fetch(new URL("/deploy", url), deployPayload);
 
           const data = await res.json();
 
@@ -342,7 +383,7 @@ export const deploy = async (
       } catch (error) {
         // Rollback previous deployments
         for (const url of deployedUrls) {
-          await fetch(new URL("/rollback", url), init);
+          await fetch(new URL("/rollback", url), rollbackPayload);
         }
 
         throw error;

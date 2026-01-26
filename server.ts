@@ -13,21 +13,52 @@ const ensureAppDir = async (app: string, tag: string) => {
   return dir;
 };
 
-const rollback = async (app: string, tag: string) => {
-  const appDir = await ensureAppDir(app, tag);
+const rollback = async (
+  details: {
+    app: string;
+    tag: string;
+    preCommand?: string;
+    postCommand?: string;
+  },
+) => {
+  const appDir = await ensureAppDir(details.app, details.tag);
 
   const backupComposePath = `${appDir}/docker-compose.backup.yml`;
   const backupEnvPath = `${appDir}/backup.env`;
+  const preBackupCommandPath = `${appDir}/.pre_deploy.backup.sh`;
+  const postBackupCommandPath = `${appDir}/.post_deploy.backup.sh`;
+
+  if (details.preCommand) {
+    await sh(
+      details.preCommand.split(" "),
+      appDir,
+    );
+  }
+
+  const [compose, env, preCommand, postCommand] = await Promise.all([
+    Deno.readTextFile(backupComposePath),
+    Deno.readTextFile(backupEnvPath).catch(() => undefined),
+    Deno.readTextFile(preBackupCommandPath).catch(() => undefined),
+    Deno.readTextFile(postBackupCommandPath).catch(() => undefined),
+  ]);
 
   await deploy({
-    app,
-    tag,
-    compose: await Deno.readTextFile(backupComposePath),
-    env: await Deno.readTextFile(backupEnvPath).catch(() => undefined),
+    app: details.app,
+    tag: details.tag,
+    compose,
+    env,
+    preCommand,
+    postCommand,
   }, {
     noBackup: true,
-    noRollback: true,
   });
+
+  if (details.postCommand) {
+    await sh(
+      details.postCommand.split(" "),
+      appDir,
+    );
+  }
 };
 
 const deploy = async (
@@ -36,39 +67,67 @@ const deploy = async (
     tag: string;
     compose: string;
     env?: string;
+    preCommand?: string;
+    postCommand?: string;
   },
   opts?: {
     noBackup: boolean;
-    noRollback: boolean;
   },
 ) => {
   const appDir = await ensureAppDir(details.app, details.tag);
 
   const composePath = `${appDir}/docker-compose.yml`;
   const envPath = `${appDir}/.env`;
+  const preCommandPath = `${appDir}/.pre_deploy.sh`;
+  const postCommandPath = `${appDir}/.post_deploy.sh`;
 
   if (!opts?.noBackup) {
-    try {
-      const backupComposePath = `${appDir}/docker-compose.backup.yml`;
-      const backupEnvPath = `${appDir}/backup.env`;
+    const backupComposePath = `${appDir}/docker-compose.backup.yml`;
+    const backupEnvPath = `${appDir}/backup.env`;
+    const preBackupCommandPath = `${appDir}/.pre_deploy.backup.sh`;
+    const postBackupCommandPath = `${appDir}/.post_deploy.backup.sh`;
 
-      await Deno.writeTextFile(
+    const backupFiles = await Promise.allSettled([
+      Deno.readTextFile(composePath),
+      Deno.readTextFile(envPath),
+      Deno.readTextFile(preCommandPath),
+      Deno.readTextFile(postCommandPath),
+    ]);
+
+    await Promise.allSettled([
+      backupFiles[0].status === "fulfilled" && Deno.writeTextFile(
         backupComposePath,
-        await Deno.readTextFile(composePath),
-      );
-
-      await Deno.writeTextFile(
+        backupFiles[0].value,
+      ),
+      backupFiles[1].status === "fulfilled" && Deno.writeTextFile(
         backupEnvPath,
-        await Deno.readTextFile(envPath),
-      );
-    } catch {
+        backupFiles[1].value,
+      ),
+      backupFiles[2].status === "fulfilled" && Deno.writeTextFile(
+        preBackupCommandPath,
+        backupFiles[2].value,
+      ),
+      backupFiles[3].status === "fulfilled" && Deno.writeTextFile(
+        postBackupCommandPath,
+        backupFiles[3].value,
+      ),
+    ]).catch(() => {
       // Do nothing...
-    }
+    });
   }
 
   await Deno.writeTextFile(composePath, details.compose);
 
   if (details.env) await Deno.writeTextFile(envPath, details.env);
+
+  if (details.preCommand) {
+    await sh(
+      details.preCommand.split(" "),
+      appDir,
+    );
+
+    await Deno.writeTextFile(preCommandPath, details.preCommand);
+  }
 
   // Space cleanup
   await sh(["docker", "system", "prune", "-a", "-f"], appDir);
@@ -76,19 +135,22 @@ const deploy = async (
   // Pull and up with minimal downtime
   await sh(["docker", "compose", "pull"], appDir);
 
-  try {
-    await sh([
-      "docker",
-      "compose",
-      "up",
-      "-d",
-      "--remove-orphans",
-      "--force-recreate",
-    ], appDir);
-  } catch (err) {
-    if (!opts?.noRollback) {
-      await rollback(details.app, details.tag);
-    } else throw err;
+  await sh([
+    "docker",
+    "compose",
+    "up",
+    "-d",
+    "--remove-orphans",
+    "--force-recreate",
+  ], appDir);
+
+  if (details.postCommand) {
+    await sh(
+      details.postCommand.split(" "),
+      appDir,
+    );
+
+    await Deno.writeTextFile(postCommandPath, details.postCommand);
   }
 };
 
@@ -119,6 +181,8 @@ Deno.serve({ port: 3740 }, async (req) => {
         tag: e.string().min(2).max(100),
         compose: e.string(),
         env: e.optional(e.string()),
+        preCommand: e.optional(e.string()),
+        postCommand: e.optional(e.string()),
       }, { allowUnexpectedProps: true }).validate(await req.json());
 
       await deploy(data);
@@ -130,9 +194,11 @@ Deno.serve({ port: 3740 }, async (req) => {
       const data = await e.object({
         app: e.string().min(2).max(100),
         tag: e.string().min(2).max(100),
+        preCommand: e.optional(e.string()),
+        postCommand: e.optional(e.string()),
       }, { allowUnexpectedProps: true }).validate(await req.json());
 
-      await rollback(data.app, data.tag);
+      await rollback(data);
 
       return jsonResponse({ success: true });
     }
