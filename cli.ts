@@ -26,6 +26,8 @@ export const deploymentVersionSchema = e.object({
 });
 
 export const deploymentLogEnvSchema = e.object({
+  buildArgs: e.optional(e.array(e.string())),
+  pushArgs: e.optional(e.array(e.string())),
   dockerOrganization: e.string().max(50),
   dockerImage: e.string().max(100),
   dockerCompose: e.string(),
@@ -288,7 +290,14 @@ export const deploy = async (
       console.info("Building docker image...");
 
       await sh(
-        ["docker", "build", "-t", ImageTag, "."],
+        [
+          "docker",
+          "build",
+          "-t",
+          ImageTag,
+          ".",
+          ...(deployEnv.buildArgs ?? []),
+        ],
       );
     }
 
@@ -297,7 +306,7 @@ export const deploy = async (
 
       // Push docker image to docker hub
       await sh(
-        ["docker", "push", ImageTag],
+        ["docker", "push", ImageTag, ...(deployEnv.pushArgs ?? [])],
       );
     }
 
