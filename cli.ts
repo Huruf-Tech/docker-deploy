@@ -306,7 +306,12 @@ export const deploy = async (
 
       // Push docker image to docker hub
       await sh(
-        ["docker", "push", ImageTag, ...(deployEnv.pushArgs ?? [])],
+        [
+          "docker",
+          "push",
+          ImageTag,
+          ...(deployEnv.pushArgs ?? []),
+        ],
       );
     }
 
