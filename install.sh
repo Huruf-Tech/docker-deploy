@@ -25,8 +25,6 @@ esac
 # ---- Docker install (added) ----
 install_docker() {
   if have docker; then
-    docker swarm init
-
     echo "✔ Docker already installed: $(docker --version 2>/dev/null || true)"
     return
   fi
@@ -56,8 +54,6 @@ install_docker() {
       exit 1
     fi
   fi
-
-  docker swarm init
   
   echo "✔ Docker installed."
 }
@@ -157,6 +153,8 @@ unset PASS PASS2
 install_docker
 enable_start_docker
 add_user_to_docker_group
+
+docker swarm init
 
 sudo systemctl daemon-reload
 sudo systemctl enable --now "${SERVICE}.service"
