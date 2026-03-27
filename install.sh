@@ -154,7 +154,7 @@ install_docker
 enable_start_docker
 add_user_to_docker_group
 
-docker swarm init
+sudo docker swarm init
 
 sudo systemctl daemon-reload
 sudo systemctl enable --now "${SERVICE}.service"
