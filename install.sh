@@ -154,7 +154,9 @@ install_docker
 enable_start_docker
 add_user_to_docker_group
 
-sudo docker swarm init
+if ! docker info | grep -q "Swarm: active"; then
+  sudo docker swarm init
+fi
 
 sudo systemctl daemon-reload
 sudo systemctl enable --now "${SERVICE}.service"
