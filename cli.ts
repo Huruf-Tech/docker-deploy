@@ -4,7 +4,7 @@ import { parseArgs as parse } from "@std/cli/parse-args";
 import { basename, join } from "@std/path";
 import e, { type inferInput, type inferOutput } from "@oridune/validator";
 
-import { Input, Secret, Select } from "@cliffy/prompt";
+import { Confirm, Input, Secret, Select } from "@cliffy/prompt";
 import { renderTemplate, sh } from "./helpers/utils.ts";
 
 export enum DeployEnv {
@@ -31,6 +31,7 @@ export const deploymentLogEnvSchema = e.object({
   dockerOrganization: e.string().max(50),
   dockerImage: e.string().max(100),
   dockerCompose: e.string(),
+  swarmMode: e.optional(e.boolean()),
   envPaths: e.array(e.string()).min(1),
   version: deploymentVersionSchema,
   versionTag: e.optional(e.string()),
@@ -133,7 +134,7 @@ export const deploy = async (
 
   if (options.prompt) {
     options.deployEnv = await Select.prompt({
-      message: "Select deployment type",
+      message: "Select deployment environment",
       options: Object.values(DeployEnv),
     }) as DeployEnv;
 
@@ -182,6 +183,14 @@ export const deploy = async (
       ? await Input.prompt({
         message: "Provide your docker compose path",
         default: "./docker-compose.yml",
+      })
+      : undefined);
+
+  const swarmMode = init?.swarmMode ?? deployEnvDetails?.swarmMode ??
+    (options.prompt
+      ? await Confirm.prompt({
+        message: "Do you want to enable swarm mode?",
+        default: false,
       })
       : undefined);
 
@@ -241,6 +250,7 @@ export const deploy = async (
     dockerOrganization: org,
     dockerImage: image,
     dockerCompose: compose,
+    swarmMode,
     envPaths,
     agentUrls,
   };
@@ -349,7 +359,7 @@ export const deploy = async (
         templateData,
       ).trim();
 
-      const generalPayload: RequestInit = {
+      const basePayload: RequestInit = {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -359,8 +369,9 @@ export const deploy = async (
       };
 
       const deployPayload: RequestInit = {
-        ...generalPayload,
+        ...basePayload,
         body: JSON.stringify({
+          swarmMode,
           app: resolvedName,
           tag: options.deployEnv,
           compose,
@@ -371,8 +382,9 @@ export const deploy = async (
       };
 
       const rollbackPayload: RequestInit = {
-        ...generalPayload,
+        ...basePayload,
         body: JSON.stringify({
+          swarmMode,
           app: resolvedName,
           tag: options.deployEnv,
         }),

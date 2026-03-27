@@ -25,6 +25,8 @@ esac
 # ---- Docker install (added) ----
 install_docker() {
   if have docker; then
+    docker swarm init
+
     echo "✔ Docker already installed: $(docker --version 2>/dev/null || true)"
     return
   fi
@@ -54,6 +56,9 @@ install_docker() {
       exit 1
     fi
   fi
+
+  docker swarm init
+  
   echo "✔ Docker installed."
 }
 

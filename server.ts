@@ -15,6 +15,7 @@ const ensureAppDir = async (app: string, tag: string) => {
 
 const rollback = async (
   details: {
+    swarmMode?: boolean;
     app: string;
     tag: string;
     preShell?: string;
@@ -43,6 +44,7 @@ const rollback = async (
   ]);
 
   await deploy({
+    swarmMode: details.swarmMode,
     app: details.app,
     tag: details.tag,
     compose,
@@ -63,6 +65,7 @@ const rollback = async (
 
 const deploy = async (
   details: {
+    swarmMode?: boolean;
     app: string;
     tag: string;
     compose: string;
@@ -130,19 +133,31 @@ const deploy = async (
   }
 
   // Space cleanup
-  await sh(["docker", "system", "prune", "-a", "-f"], appDir);
+  await sh(["docker", "system", "prune", "-af"], appDir);
 
   // Pull and up with minimal downtime
   await sh(["docker", "compose", "pull"], appDir);
 
-  await sh([
-    "docker",
-    "compose",
-    "up",
-    "-d",
-    "--remove-orphans",
-    "--force-recreate",
-  ], appDir);
+  if (details.swarmMode) {
+    await sh([
+      "docker",
+      "stack",
+      "deploy",
+      "--compose-file",
+      "docker-compose.yml",
+      "--with-registry-auth",
+      details.app,
+    ], appDir);
+  } else {
+    await sh([
+      "docker",
+      "compose",
+      "up",
+      "-d",
+      "--remove-orphans",
+      "--force-recreate",
+    ], appDir);
+  }
 
   if (details.postShell) {
     await sh(
@@ -177,6 +192,7 @@ Deno.serve({ port: 3740 }, async (req) => {
 
     if (req.method === "POST" && url.pathname === "/deploy") {
       const data = await e.object({
+        swarmMode: e.optional(e.boolean()),
         app: e.string().min(2).max(100),
         tag: e.string().min(2).max(100),
         compose: e.string(),
@@ -192,6 +208,7 @@ Deno.serve({ port: 3740 }, async (req) => {
 
     if (req.method === "POST" && url.pathname === "/rollback") {
       const data = await e.object({
+        swarmMode: e.optional(e.boolean()),
         app: e.string().min(2).max(100),
         tag: e.string().min(2).max(100),
         preShell: e.optional(e.string()),
